@@ -13,6 +13,9 @@ import pandas as pd
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, LSTM, Dropout, GRU
 
 np.random.seed(1)
 tf.set_random_seed(1)
@@ -66,8 +69,15 @@ class DeepQNetwork:
         self.sess.run(tf.global_variables_initializer())
         self.cost_his = []
 
+    #使用两个相同结构的网络来实现fix Q-target
     def _build_net(self):
         # ------------------ build evaluate_net ------------------
+
+        model = Sequential()
+        model.add(LSTM(128, input_shape=(16, 4), activation='tanh', recurrent_activation='sigmoid', return_sequences=True))
+        model.add(LSTM(128, return_sequences=False))
+
+
         self.s = tf.placeholder(tf.float32, [None, self.n_features], name='s')  # input
         self.q_target = tf.placeholder(tf.float32, [None, self.n_actions], name='Q_target')  # for calculating loss
         with tf.variable_scope('eval_net'):
@@ -113,6 +123,7 @@ class DeepQNetwork:
                 b2 = tf.get_variable('b2', [1, self.n_actions], initializer=b_initializer, collections=c_names)
                 self.q_next = tf.matmul(l1, w2) + b2
 
+    #记忆库
     def store_transition(self, s, a, r, s_):
         if not hasattr(self, 'memory_counter'):
             self.memory_counter = 0
