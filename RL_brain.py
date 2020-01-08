@@ -73,9 +73,9 @@ class DeepQNetwork:
     def _build_net(self):
         # ------------------ build evaluate_net ------------------
 
-        model = Sequential()
-        model.add(LSTM(128, input_shape=(16, 4), activation='tanh', recurrent_activation='sigmoid', return_sequences=True))
-        model.add(LSTM(128, return_sequences=False))
+        #model = Sequential()
+        #model.add(LSTM(128, input_shape=(16, 4), activation='tanh', recurrent_activation='sigmoid', return_sequences=True))
+        #model.add(LSTM(128, return_sequences=False))
 
 
         self.s = tf.placeholder(tf.float32, [None, self.n_features], name='s')  # input
