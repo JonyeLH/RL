@@ -2,7 +2,6 @@
 This part of code is the DQN brain, which is a brain of the agent.
 All decisions are made in here.
 Using Tensorflow to build the neural network.
-View more on my tutorial page: https://morvanzhou.github.io/tutorials/
 Using:
 Tensorflow: 1.0
 gym: 0.7.3
@@ -34,7 +33,7 @@ class DeepQNetwork:
             memory_size=500,
             batch_size=32,
             e_greedy_increment=None,
-            output_graph=False, #True表示可以在Terminal使用tensorboard可视化模型
+            output_graph=True, #True表示可以在Terminal使用tensorboard可视化模型
     ):
         self.n_actions = n_actions
         self.n_features = n_features
@@ -70,58 +69,136 @@ class DeepQNetwork:
         self.cost_his = []
 
     #使用两个相同结构的网络来实现fix Q-target
-    def _build_net(self):
+    # def _build_net(self):
+    #     # ------------------ build evaluate_net ------------------
+    #     self.s = tf.placeholder(tf.float32, [None, self.n_features], name='s')  # input
+    #     self.q_target = tf.placeholder(tf.float32, [None, self.n_actions], name='Q_target')  # for calculating loss
+    #     with tf.variable_scope('eval_net'):
+    #         # c_names(collections_names) are the collections to store variables,只是一个eval_net的参数集合
+    #         # n_l1是第一层有多少神经元数目
+    #         # w_initializer权重矩阵     b_initializer偏置
+    #         c_names, n_l1, w_initializer, b_initializer = \
+    #             ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 10, \
+    #             tf.random_normal_initializer(0., 0.3), tf.constant_initializer(0.1)  # config of layers
+    #
+    #         # first layer. collections is used later when assign to target net
+    #         with tf.variable_scope('l1'):
+    #             w1 = tf.get_variable('w1', [self.n_features, n_l1], initializer=w_initializer, collections=c_names)
+    #             b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
+    #             l1 = tf.nn.relu(tf.matmul(self.s, w1) + b1)
+    #
+    #         # second layer. collections is used later when assign to target net
+    #         with tf.variable_scope('l2'):
+    #             w2 = tf.get_variable('w2', [n_l1, self.n_actions], initializer=w_initializer, collections=c_names)
+    #             b2 = tf.get_variable('b2', [1, self.n_actions], initializer=b_initializer, collections=c_names)
+    #             self.q_eval = tf.matmul(l1, w2) + b2
+    #
+    #         # #try build net
+    #         # time_step = 20
+    #         # rnn_unit = 10
+    #         # batch_size = 60
+    #         # input_size = 1
+    #         # output_size = 1
+    #         # lr = 0.0006
+    #         # weights = {
+    #         #     'in': tf.Variable(tf.random_normal(input_size,rnn_unit)),
+    #         #     'out': tf.Variable(tf.random_normal(rnn_unit, 1))
+    #         # }
+    #         # biases = {
+    #         #     'in': tf.Variable(tf.constant(0.1, shape=[rnn_unit, ])),
+    #         #     'out': tf.Variable(tf.constant(0.1, shape=[1, ]))
+    #         # }
+    #         # w_in=weights['in']
+    #         # b_in=biases['in']
+    #         # input = tf.reshape(self.n_features, [-1, self.n_features])#将tensor转成2维
+    #         # input_rnn = tf.matmul(input, w_in) + b_in
+    #         # input_rnn = tf.reshape(input_rnn, [-1, time_step, rnn_unit])#再转成3维
+    #         # cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_unit)
+    #         # init_state = cell.zero_state(batch, dtype=tf.float32)
+    #         # with tf.variable_scope('scope', reuse=tf.AUTO_REUSE):
+    #         #     output_rnn, final_states = tf.nn.dynamic_rnn(cell, input_rnn, initial_state=init_state,dtype=tf.float32)
+    #         # output = tf.reshape(output_rnn, [-1, rnn_unit])
+    #         # w_out = weights['out']
+    #         # b_out = biases['out']
+    #         # self.q_eval = tf.matmul(output, w_out) + b_out
+    #
+    #
+    #     with tf.variable_scope('loss'):
+    #         self.loss = tf.reduce_mean(tf.squared_difference(self.q_target, self.q_eval))
+    #     with tf.variable_scope('train'):
+    #         self._train_op = tf.train.RMSPropOptimizer(self.lr).minimize(self.loss)
+    #
+    #     # ------------------ build target_net ------------------
+    #     self.s_ = tf.placeholder(tf.float32, [None, self.n_features], name='s_')    # input
+    #     with tf.variable_scope('target_net'):
+    #         # c_names(collections_names) are the collections to store variables
+    #         c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
+    #
+    #         # first layer. collections is used later when assign to target net
+    #         with tf.variable_scope('l1'):
+    #             w1 = tf.get_variable('w1', [self.n_features, n_l1], initializer=w_initializer, collections=c_names)
+    #             b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
+    #             l1 = tf.nn.relu(tf.matmul(self.s_, w1) + b1)
+    #
+    #         # second layer. collections is used later when assign to target net
+    #         with tf.variable_scope('l2'):
+    #             w2 = tf.get_variable('w2', [n_l1, self.n_actions], initializer=w_initializer, collections=c_names)
+    #             b2 = tf.get_variable('b2', [1, self.n_actions], initializer=b_initializer, collections=c_names)
+    #             self.q_next = tf.matmul(l1, w2) + b2
+
+    def _build_net(self, batch):
+        time_step = 20
+        rnn_unit = 10
+        batch_size = 60
+        input_size = 1
+        output_size = 1
+        lr = 0.0006
+
         # ------------------ build evaluate_net ------------------
-
-        #model = Sequential()
-        #model.add(LSTM(128, input_shape=(16, 4), activation='tanh', recurrent_activation='sigmoid', return_sequences=True))
-        #model.add(LSTM(128, return_sequences=False))
-
-
         self.s = tf.placeholder(tf.float32, [None, self.n_features], name='s')  # input
-        self.q_target = tf.placeholder(tf.float32, [None, self.n_actions], name='Q_target')  # for calculating loss
+        self.q_target = tf.placeholder(tf.float32, [None, self.n_actions],
+                                               name='Q_target')  # q_target for calculating loss
         with tf.variable_scope('eval_net'):
-            # c_names(collections_names) are the collections to store variables,只是一个eval_net的参数集合
-            # n_l1是第一层有多少神经元数目
-            # w_initializer权重矩阵     b_initializer偏置矩阵
-            c_names, n_l1, w_initializer, b_initializer = \
-                ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 10, \
-                tf.random_normal_initializer(0., 0.3), tf.constant_initializer(0.1)  # config of layers
+            c_names, n_l1, w_initializer, b_initializer = ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 10, \
+                            {'in': tf.Variable(tf.random_normal([input_size, rnn_unit])),
+                             'out': tf.Variable(tf.random_normal([rnn_unit, 1]))}, \
+                            {'in': tf.Variable(tf.constant(0.1, shape=[rnn_unit, ])),
+                             'out': tf.Variable(tf.constant(0.1, shape=[1, ]))}
 
-            # first layer. collections is used later when assign to target net
-            with tf.variable_scope('l1'):
-                w1 = tf.get_variable('w1', [self.n_features, n_l1], initializer=w_initializer, collections=c_names)
-                b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
-                l1 = tf.nn.relu(tf.matmul(self.s, w1) + b1)
+            with tf.variable_scope('L'):
+                w_in = tf.get_variable('w_in', [self.n_features, n_l1], initializer=w_initializer,
+                                               collections=c_names)
+                b_in = tf.get_variable('b_in', [1, n_l1], initializer=b_initializer, collections=c_names)
+                input = tf.reshape(self.n_features, [-1, input_size])
+                input_rnn = tf.matmul(input, w_in) + b_in
+                input_rnn = tf.reshape(input_rnn, [-1, time_step, rnn_unit])
+                cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_unit)
+                init_state = cell.zero_state(batch, dtype=tf.float32)
+                with tf.variable_scope('scope', reuse=tf.AUTO_REUSE):
+                    output_rnn, final_states = tf.nn.dynamic_rnn(cell, input_rnn, initial_state=init_state,
+                                                                         dtype=tf.float32)
+                output = tf.reshape(output_rnn, [-1, rnn_unit])
+                w_out = tf.get_variable('w_out', [self.n_features, n_l1], initializer=w_initializer,
+                                                collections=c_names)
+                b_out = tf.get_variable('b_out', [1, n_l1], initializer=b_initializer, collections=c_names)
+                self.q_eval = tf.matmul(output, w_out) + b_out
 
-            # second layer. collections is used later when assign to target net
-            with tf.variable_scope('l2'):
-                w2 = tf.get_variable('w2', [n_l1, self.n_actions], initializer=w_initializer, collections=c_names)
-                b2 = tf.get_variable('b2', [1, self.n_actions], initializer=b_initializer, collections=c_names)
-                self.q_eval = tf.matmul(l1, w2) + b2
-
+                # return pred,final_states
         with tf.variable_scope('loss'):
             self.loss = tf.reduce_mean(tf.squared_difference(self.q_target, self.q_eval))
         with tf.variable_scope('train'):
             self._train_op = tf.train.RMSPropOptimizer(self.lr).minimize(self.loss)
 
         # ------------------ build target_net ------------------
-        self.s_ = tf.placeholder(tf.float32, [None, self.n_features], name='s_')    # input
+        self.s_ = tf.placeholder(tf.float32, [None, self.n_features], name='s_')
         with tf.variable_scope('target_net'):
-            # c_names(collections_names) are the collections to store variables
             c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 
-            # first layer. collections is used later when assign to target net
-            with tf.variable_scope('l1'):
-                w1 = tf.get_variable('w1', [self.n_features, n_l1], initializer=w_initializer, collections=c_names)
-                b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
-                l1 = tf.nn.relu(tf.matmul(self.s_, w1) + b1)
-
-            # second layer. collections is used later when assign to target net
-            with tf.variable_scope('l2'):
-                w2 = tf.get_variable('w2', [n_l1, self.n_actions], initializer=w_initializer, collections=c_names)
-                b2 = tf.get_variable('b2', [1, self.n_actions], initializer=b_initializer, collections=c_names)
-                self.q_next = tf.matmul(l1, w2) + b2
+            with tf.variable_scope('L'):
+                w_in = tf.get_variable('w_in', [self.n_features, n_l1], initializer=w_initializer,
+                                               collections=c_names)
+                b_in = tf.get_variable('b_in', [1, n_l1], initializer=b_initializer, collections=c_names)
+                self.q_next = tf.matmul(self.s_, w_in) + b_in
 
     #记忆库
     def store_transition(self, s, a, r, s_):
