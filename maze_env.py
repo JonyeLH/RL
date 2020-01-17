@@ -31,6 +31,9 @@ class Maze(tk.Tk, object):
         self.geometry('{0}x{1}'.format(MAZE_H * UNIT, MAZE_H * UNIT))
         self._build_maze()
 
+    #def _init_(self):
+
+
     def _build_maze(self):
         self.canvas = tk.Canvas(self, bg='white',
                            height=MAZE_H * UNIT,

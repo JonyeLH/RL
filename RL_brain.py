@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
-
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Dropout, GRU
@@ -84,7 +83,7 @@ class DeepQNetwork:
     #         # first layer. collections is used later when assign to target net
     #         with tf.variable_scope('l1'):
     #             w1 = tf.get_variable('w1', [self.n_features, n_l1], initializer=w_initializer, collections=c_names)
-    #             b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names)
+    #             b1 = tf.get_variable('b1', [1, n_l1], initializer=b_initializer, collections=c_names) #
     #             l1 = tf.nn.relu(tf.matmul(self.s, w1) + b1)
     #
     #         # second layer. collections is used later when assign to target net
@@ -146,7 +145,7 @@ class DeepQNetwork:
     #             b2 = tf.get_variable('b2', [1, self.n_actions], initializer=b_initializer, collections=c_names)
     #             self.q_next = tf.matmul(l1, w2) + b2
 
-    def _build_net(self, batch):
+    def _build_net(self):
         time_step = 20
         rnn_unit = 10
         batch_size = 60
@@ -156,31 +155,26 @@ class DeepQNetwork:
 
         # ------------------ build evaluate_net ------------------
         self.s = tf.placeholder(tf.float32, [None, self.n_features], name='s')  # input
-        self.q_target = tf.placeholder(tf.float32, [None, self.n_actions],
-                                               name='Q_target')  # q_target for calculating loss
+        self.q_target = tf.placeholder(tf.float32, [None, self.n_actions],name='Q_target')  # q_target for calculating loss
         with tf.variable_scope('eval_net'):
-            c_names, n_l1, w_initializer, b_initializer = ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 10, \
-                            {'in': tf.Variable(tf.random_normal([input_size, rnn_unit])),
-                             'out': tf.Variable(tf.random_normal([rnn_unit, 1]))}, \
-                            {'in': tf.Variable(tf.constant(0.1, shape=[rnn_unit, ])),
-                             'out': tf.Variable(tf.constant(0.1, shape=[1, ]))}
+            c_names, n_l1, w_in_initializer, b_in_initializer, w_out_initializer, b_out_initializer = \
+                ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 10, \
+                [tf.Variable(tf.random_normal([input_size, rnn_unit]))], [tf.Variable(tf.constant(0.1))], \
+                [tf.Variable(tf.random_normal([rnn_unit, 1]))], [tf.Variable(tf.constant(0.1))] #, shape=[rnn_unit, ]    , shape=[1, ]
 
             with tf.variable_scope('L'):
-                w_in = tf.get_variable('w_in', [self.n_features, n_l1], initializer=w_initializer,
-                                               collections=c_names)
-                b_in = tf.get_variable('b_in', [1, n_l1], initializer=b_initializer, collections=c_names)
+                w_in = tf.get_variable('w_in',  initializer=w_in_initializer, collections=c_names)  #[self.n_features, n_l1], tf.float32,
+                b_in = tf.get_variable('b_in',  initializer=b_in_initializer, collections=c_names)  #[1, n_l1],
                 input = tf.reshape(self.n_features, [-1, input_size])
                 input_rnn = tf.matmul(input, w_in) + b_in
                 input_rnn = tf.reshape(input_rnn, [-1, time_step, rnn_unit])
                 cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_unit)
-                init_state = cell.zero_state(batch, dtype=tf.float32)
+                init_state = cell.zero_state(dtype=tf.float32)
                 with tf.variable_scope('scope', reuse=tf.AUTO_REUSE):
-                    output_rnn, final_states = tf.nn.dynamic_rnn(cell, input_rnn, initial_state=init_state,
-                                                                         dtype=tf.float32)
+                    output_rnn, final_states = tf.nn.dynamic_rnn(cell, input_rnn, initial_state=init_state, dtype=tf.float32)
                 output = tf.reshape(output_rnn, [-1, rnn_unit])
-                w_out = tf.get_variable('w_out', [self.n_features, n_l1], initializer=w_initializer,
-                                                collections=c_names)
-                b_out = tf.get_variable('b_out', [1, n_l1], initializer=b_initializer, collections=c_names)
+                w_out = tf.get_variable('w_out', [self.n_features, n_l1], initializer=w_out_initializer,collections=c_names)
+                b_out = tf.get_variable('b_out', [1, n_l1], initializer=b_out_initializer, collections=c_names)
                 self.q_eval = tf.matmul(output, w_out) + b_out
 
                 # return pred,final_states
@@ -195,9 +189,8 @@ class DeepQNetwork:
             c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 
             with tf.variable_scope('L'):
-                w_in = tf.get_variable('w_in', [self.n_features, n_l1], initializer=w_initializer,
-                                               collections=c_names)
-                b_in = tf.get_variable('b_in', [1, n_l1], initializer=b_initializer, collections=c_names)
+                w_in = tf.get_variable('w_in', [self.n_features, n_l1], initializer=w_in_initializer, collections=c_names)  #
+                b_in = tf.get_variable('b_in', [1, n_l1], initializer=b_in_initializer, collections=c_names)  #
                 self.q_next = tf.matmul(self.s_, w_in) + b_in
 
     #记忆库
